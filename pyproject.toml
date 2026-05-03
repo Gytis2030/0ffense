@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "project-offense"
+version = "0.1.0"
+description = "Low-turnover long-only risk-managed trading research system."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.23", "pandas>=1.5"]
+
+[project.optional-dependencies]
+data = ["yfinance>=0.2"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+project-offense = "project_offense.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["project_offense*"]
