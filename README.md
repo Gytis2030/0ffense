@@ -114,14 +114,22 @@ Only `USD` assets are currently supported. Entries with `role: benchmark` are me
 
 The CLI writes:
 
+- `audit_report.md`
+- `cash_curve.csv`
 - `equity_curve.csv`
-- `weights.csv`
-- `trades.csv`
 - `dry_run_orders.csv`
 - `metrics.csv`
-- `audit_report.md`
+- `positions.csv`
+- `reconciliation_report.csv`
+- `skipped_trades.csv`
+- `trades.csv`
+- `weights.csv`
 
 `audit_report.md` records data source metadata, validation status, validation warnings/errors, benchmark ticker, data date range, row count, and ticker count. Validation warnings do not necessarily block a backtest, but they must be reviewed before trusting results. Synthetic data is clearly marked in both the CLI output and audit report.
+
+The audit report also records the backtest timing convention, transaction cost assumptions, number of rebalances, number of trades, skipped trade counts, missing-price skips, minimum-trade-size skips, cash-constrained order resizing, leverage attempts, and whether cash ever went negative. Cash-constrained resizing is normal accounting behavior; it is reported separately from leverage attempts.
+
+`reconciliation_report.csv` proves daily accounting with `reported_equity = cash + positions_market_value`. Rows include cash, positions market value, reported equity, recalculated equity, difference, and reconciliation status.
 
 ## Tests
 
@@ -132,8 +140,15 @@ python3 -m unittest discover -s project_offense/tests
 ## Assumptions
 
 - Signals are computed from adjusted daily close prices.
-- A rebalance decision made on date `T` uses data only through `T-1`.
-- Trades are modeled at the rebalance close after that day's portfolio return is applied.
+- Monthly signals are computed at the close of the last available trading day of each calendar month.
+- The rebalance decision is made after that signal-date close.
+- Trades execute on the next available trading day after the decision date.
+- The engine tracks cash and shares explicitly; buys are capped by available cash after estimated costs.
+- Fractional shares are allowed by default. Set `StrategyConfig(allow_fractional_shares=False)` to round share quantities down to whole shares.
+- The first benchmark return is set to `0.0` by convention. Missing benchmark returns after the first row are fatal in validated runs.
+- Date validation uses configurable maximum calendar-day gaps instead of requiring every weekday. Normal weekend gaps and short holiday-like weekday gaps are allowed; long unexplained gaps are rejected.
 - Cash earns zero interest.
 - Transaction costs include minimum commission, percentage commission, and bid-ask slippage.
+- Trades below the configured minimum trade size are skipped and logged.
+- Trades with missing or unusable execution prices are skipped and logged.
 - Live order placement is not implemented.

@@ -43,7 +43,7 @@ class DataValidationConfig:
     supported_currencies: frozenset[str] = frozenset({"USD"})
     stale_price_days: int = 5
     extreme_daily_return: float = 0.50
-    require_business_day_calendar: bool = True
+    max_gap_days: int = 7
 
 
 def validate_price_data(price_data: PriceData, config: DataValidationConfig = DataValidationConfig()) -> PriceData:
@@ -68,12 +68,14 @@ def validate_price_data(price_data: PriceData, config: DataValidationConfig = Da
     if prices.columns.to_series().duplicated().any():
         raise DataValidationError("Price data contains duplicate ticker columns.")
 
-    if config.require_business_day_calendar:
-        expected = pd.bdate_range(prices.index.min(), prices.index.max())
-        missing = expected.difference(prices.index)
-        if not missing.empty:
-            first_missing = missing[0].date().isoformat()
-            raise DataValidationError(f"Price data has missing business dates; first missing date is {first_missing}.")
+    if config.max_gap_days > 0:
+        gaps = prices.index.to_series().diff().dt.days.iloc[1:]
+        long_gaps = gaps[gaps > config.max_gap_days]
+        if not long_gaps.empty:
+            first_gap_end = long_gaps.index[0].date().isoformat()
+            raise DataValidationError(
+                f"Price data contains a date gap longer than {config.max_gap_days} calendar days; first gap ends on {first_gap_end}."
+            )
 
     returns = prices.pct_change().iloc[1:]
     if returns.abs().gt(config.extreme_daily_return).any().any():

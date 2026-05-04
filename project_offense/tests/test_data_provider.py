@@ -75,10 +75,20 @@ class DataProviderTests(unittest.TestCase):
         with self.assertRaises(DataValidationError):
             validate_price_data(price_data)
 
-    def test_missing_business_dates_are_rejected(self) -> None:
+    def test_short_holiday_like_weekday_gap_is_allowed(self) -> None:
         prices = valid_prices().drop(pd.Timestamp("2024-01-04"))
+        validated = validate_price_data(PriceData(prices, metadata()))
+        self.assertTrue(validated.validation_result.validated)
+
+    def test_normal_weekend_gaps_are_allowed(self) -> None:
+        validated = validate_price_data(PriceData(valid_prices(), metadata()))
+        self.assertTrue(validated.validation_result.validated)
+
+    def test_long_date_gap_is_rejected(self) -> None:
+        dates = pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-15", "2024-01-16"])
+        prices = pd.DataFrame({"AAPL": [100, 101, 102, 103], "SPY": [200, 201, 202, 203]}, index=dates)
         with self.assertRaises(DataValidationError):
-            validate_price_data(PriceData(prices, metadata()))
+            validate_price_data(PriceData(prices, metadata()), DataValidationConfig(max_gap_days=7))
 
     def test_duplicate_dates_are_rejected(self) -> None:
         prices = valid_prices()

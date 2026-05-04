@@ -20,3 +20,4 @@ class StrategyConfig:
     starting_cash: float = 100_000.0
     cost: CostConfig = CostConfig()
     active_universe: Sequence[str] | None = None
+    allow_fractional_shares: bool = True

@@ -34,6 +34,29 @@ class ReportTests(unittest.TestCase):
         self.assertIn("data_end_date:", content)
         self.assertIn("row_count: 700", content)
         self.assertIn("ticker_count:", content)
+        self.assertIn("## Backtest", content)
+        self.assertIn("rebalance_frequency: monthly", content)
+        self.assertIn("number_of_rebalances:", content)
+        self.assertIn("number_of_trades:", content)
+        self.assertIn("number_of_skipped_trades:", content)
+        self.assertIn("cash_went_negative:", content)
+        self.assertIn("allow_fractional_shares:", content)
+        self.assertIn("benchmark_return_convention:", content)
+        self.assertIn("skipped_trade_reason_counts:", content)
+        self.assertIn("cash_constraint_triggered:", content)
+        self.assertIn("orders_resized_due_to_cash:", content)
+        self.assertIn("number_of_cash_resized_orders:", content)
+        self.assertIn("total_cash_shortfall_before_resizing:", content)
+
+    def test_reconciliation_report_is_written(self) -> None:
+        result = result_with_warning()
+        with tempfile.TemporaryDirectory() as tmp:
+            write_reports(result, tmp)
+            content = (Path(tmp) / "reconciliation_report.csv").read_text(encoding="utf-8")
+
+        self.assertIn("cash", content)
+        self.assertIn("positions_market_value", content)
+        self.assertIn("is_reconciled", content)
 
     def test_validation_warnings_appear_in_written_report(self) -> None:
         result = result_with_warning()

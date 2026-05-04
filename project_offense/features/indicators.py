@@ -6,7 +6,7 @@ TRADING_DAYS_PER_MONTH = 21
 
 
 def daily_returns(prices: pd.DataFrame) -> pd.DataFrame:
-    return prices.pct_change()
+    return prices.pct_change(fill_method=None)
 
 
 def momentum(prices: pd.DataFrame, lookback_days: int, skip_days: int = 0) -> pd.DataFrame:

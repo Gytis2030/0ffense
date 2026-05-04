@@ -75,6 +75,7 @@ def main() -> None:
     for key, value in result.metrics.items():
         print(f"{key}: {value:.4f}")
     _print_audit_summary(result.data_audit)
+    _print_backtest_audit_summary(result.backtest_audit)
     print(f"Reports written to: {output_dir.resolve()}")
 
 
@@ -97,6 +98,21 @@ def _print_audit_summary(audit: dict[str, object]) -> None:
         print("Validation warnings")
         for warning in warnings:
             print(f"- {warning}")
+
+
+def _print_backtest_audit_summary(audit: dict[str, object]) -> None:
+    print("Backtest audit")
+    print(
+        "rebalances={rebalances} trades={trades} skipped={skipped} skip_reasons={reasons} cash_resized_orders={cash_resized} leverage_attempted={leverage} cash_negative={cash_negative}".format(
+            rebalances=audit.get("number_of_rebalances"),
+            trades=audit.get("number_of_trades"),
+            skipped=audit.get("number_of_skipped_trades"),
+            reasons=audit.get("skipped_trade_reason_counts"),
+            cash_resized=audit.get("number_of_cash_resized_orders"),
+            leverage=audit.get("leverage_was_attempted"),
+            cash_negative=audit.get("cash_went_negative"),
+        )
+    )
 
 
 if __name__ == "__main__":
