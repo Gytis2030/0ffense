@@ -53,6 +53,20 @@ def regime_exposure(benchmark_prices: pd.Series, asof_date: pd.Timestamp) -> flo
     return exposure
 
 
+def _regime_exposure(benchmark_prices: pd.Series, asof_date: pd.Timestamp, config: StrategyConfig) -> float:
+    if not config.regime_filter_enabled:
+        return 1.0
+    hist = benchmark_prices.loc[:asof_date].dropna()
+    if len(hist) < config.trend_ma_window:
+        return 0.0
+    exposure = 1.0
+    if hist.iloc[-1] < simple_moving_average(hist, config.trend_ma_window).iloc[-1]:
+        exposure *= 0.50
+    if rolling_max_drawdown(hist, config.volatility_lookback).iloc[-1] < -0.10:
+        exposure *= 0.50
+    return exposure
+
+
 def run_backtest(price_data: PriceData, config: StrategyConfig = StrategyConfig()) -> BacktestResult:
     if not isinstance(price_data, PriceData):
         raise TypeError("run_backtest() requires validated PriceData. Use run_backtest_unsafe_from_dataframe(..., allow_unsafe=True) only for tests/debugging.")
@@ -154,8 +168,24 @@ def _run_backtest_from_prices(prices: pd.DataFrame, config: StrategyConfig, data
             raise ValueError("Active universe has no tradable tickers in prices.")
         assets = assets.loc[:, allowed]
     benchmark_returns = _benchmark_returns(benchmark, validated=data_audit.get("validation_status") == "validated")
-    scores = ranking_scores(assets)
-    vol_6 = build_features(assets)["vol_6"]
+    if config.rebalance_frequency != "monthly":
+        raise ValueError("Only monthly rebalance_frequency is currently supported.")
+    scores = ranking_scores(
+        assets,
+        lookback_12m=config.lookback_12m,
+        skip_recent_month=config.skip_recent_month,
+        lookback_6m=config.lookback_6m,
+        volatility_lookback=config.volatility_lookback,
+        trend_ma_window=config.trend_ma_window,
+    )
+    vol_6 = build_features(
+        assets,
+        lookback_12m=config.lookback_12m,
+        skip_recent_month=config.skip_recent_month,
+        lookback_6m=config.lookback_6m,
+        volatility_lookback=config.volatility_lookback,
+        trend_ma_window=config.trend_ma_window,
+    )["vol_6"]
     rebalance_plan = _monthly_rebalance_plan(prices.index)
     plan_by_execution: dict[pd.Timestamp, list[tuple[pd.Timestamp, pd.Timestamp]]] = {}
     for signal_date, decision_date, execution_date in rebalance_plan:
@@ -183,7 +213,7 @@ def _run_backtest_from_prices(prices: pd.DataFrame, config: StrategyConfig, data
                 vol_6.loc[signal_date],
                 top_n=config.top_n,
                 max_weight=config.max_position_weight,
-                exposure=regime_exposure(benchmark, signal_date),
+                exposure=_regime_exposure(benchmark, signal_date, config),
             ).reindex(assets.columns).fillna(0.0)
             _validate_target_weights(target, config)
             cash = _execute_rebalance(
@@ -496,6 +526,16 @@ def _build_backtest_audit(
         "slippage_bps": config.cost.slippage_bps,
         "minimum_trade_size": config.cost.min_trade_value,
         "allow_fractional_shares": config.allow_fractional_shares,
+        "strategy_name": config.name,
+        "lookback_12m": config.lookback_12m,
+        "skip_recent_month": config.skip_recent_month,
+        "lookback_6m": config.lookback_6m,
+        "volatility_lookback": config.volatility_lookback,
+        "trend_ma_window": config.trend_ma_window,
+        "top_n": config.top_n,
+        "max_position_weight": config.max_position_weight,
+        "regime_filter_enabled": config.regime_filter_enabled,
+        "risk_free_rate": config.risk_free_rate,
         "benchmark_return_convention": "first benchmark return set to 0.0; missing benchmark returns after first row are fatal in validated runs",
         "number_of_rebalances": len(rebalance_plan),
         "number_of_trades": int(len(trades)),

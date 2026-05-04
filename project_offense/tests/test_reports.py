@@ -58,6 +58,18 @@ class ReportTests(unittest.TestCase):
         self.assertIn("positions_market_value", content)
         self.assertIn("is_reconciled", content)
 
+    def test_research_reports_are_written(self) -> None:
+        result = result_with_warning()
+        with tempfile.TemporaryDirectory() as tmp:
+            write_reports(result, tmp)
+            files = {path.name for path in Path(tmp).iterdir()}
+
+        self.assertIn("monthly_returns.csv", files)
+        self.assertIn("weekly_returns.csv", files)
+        self.assertIn("rolling_metrics.csv", files)
+        self.assertIn("strategy_score_summary.csv", files)
+        self.assertIn("research_report.md", files)
+
     def test_validation_warnings_appear_in_written_report(self) -> None:
         result = result_with_warning()
         with tempfile.TemporaryDirectory() as tmp:

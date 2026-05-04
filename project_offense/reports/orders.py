@@ -4,6 +4,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from project_offense.research.reports import write_research_reports
+
 
 def build_order_report(weights: pd.Series, latest_prices: pd.Series, portfolio_value: float) -> pd.DataFrame:
     rows = []
@@ -42,6 +44,7 @@ def write_reports(result, output_dir: str) -> None:
         format_audit_report(result.data_audit, getattr(result, "backtest_audit", {})),
         encoding="utf-8",
     )
+    write_research_reports(result, str(path))
 
 
 def format_audit_report(audit: dict[str, object], backtest_audit: dict[str, object] | None = None) -> str:
@@ -84,6 +87,7 @@ def format_audit_report(audit: dict[str, object], backtest_audit: dict[str, obje
             f"- slippage_bps: {backtest_audit.get('slippage_bps')}",
             f"- minimum_trade_size: {backtest_audit.get('minimum_trade_size')}",
             f"- allow_fractional_shares: {backtest_audit.get('allow_fractional_shares')}",
+            f"- risk_free_rate: {backtest_audit.get('risk_free_rate')}",
             f"- benchmark_return_convention: {backtest_audit.get('benchmark_return_convention')}",
             f"- number_of_rebalances: {backtest_audit.get('number_of_rebalances')}",
             f"- number_of_trades: {backtest_audit.get('number_of_trades')}",

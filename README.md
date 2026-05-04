@@ -47,6 +47,41 @@ project-offense --prices-csv prices.csv --benchmark SPY --universe-config config
 
 The CSV should have a date index in the first column and one ticker per column, including the benchmark symbol and all tradable tickers in the selected universe. Extra ticker columns are ignored when `--universe-config` is supplied.
 
+## Strategy Research
+
+The default strategy configuration is `defensive_momentum_v1`. It exposes the following research parameters without optimizing them for maximum historical performance:
+
+- `lookback_12m`
+- `skip_recent_month`
+- `lookback_6m`
+- `volatility_lookback`
+- `trend_ma_window`
+- `top_n`
+- `max_position_weight`
+- `rebalance_frequency`
+- `regime_filter_enabled`
+- `allow_fractional_shares`
+- `risk_free_rate`
+
+Run a research backtest with the same CLI command used for a normal backtest:
+
+```bash
+project-offense --demo --allow-synthetic --strategy defensive_momentum_v1 --universe-config config/stock_universe.yaml --output-dir reports_output
+```
+
+Research outputs are written automatically. Use `research_report.md` for the high-level objective comparison versus the benchmark, and `strategy_score_summary.csv` for the metric table. The default research reports assume `risk_free_rate = 0.0` unless the strategy config is changed.
+
+Metric conventions:
+
+- CAGR is calculated from the first and last valid net equity values and annualized using elapsed calendar days divided by 365.25.
+- Daily volatility, Sharpe, Sortino, beta, tracking error, information ratio, hit rate, weekly returns, monthly returns, and rolling metrics exclude the artificial first-day `0.0` return inserted by the backtest engine.
+- Sharpe and Sortino use the configured annual `risk_free_rate`; Sortino measures downside deviation against the per-period minimum acceptable return over the full daily return sample.
+- Calmar is CAGR divided by absolute max drawdown. It is reported as `0.0` when drawdown is zero because the ratio is undefined.
+- Turnover is `sum(abs(executed trade value)) / average equity`; skipped trades are excluded.
+- Cost drag is full-period `sum(actual deducted costs) / initial equity`; `annualized_cost_drag` is that full-period drag divided by elapsed years.
+- Weekly returns use `W-FRI` resampling and monthly returns use calendar month-end resampling.
+- Weekly and monthly returns are net of trading costs because they are derived from the net equity curve.
+
 ## Data Input Format
 
 Local CSV data is loaded through `LocalCSVDataProvider`. The expected format is wide daily price data:
@@ -121,8 +156,13 @@ The CLI writes:
 - `metrics.csv`
 - `positions.csv`
 - `reconciliation_report.csv`
+- `research_report.md`
+- `rolling_metrics.csv`
 - `skipped_trades.csv`
+- `strategy_score_summary.csv`
 - `trades.csv`
+- `weekly_returns.csv`
+- `monthly_returns.csv`
 - `weights.csv`
 
 `audit_report.md` records data source metadata, validation status, validation warnings/errors, benchmark ticker, data date range, row count, and ticker count. Validation warnings do not necessarily block a backtest, but they must be reviewed before trusting results. Synthetic data is clearly marked in both the CLI output and audit report.
@@ -130,6 +170,8 @@ The CLI writes:
 The audit report also records the backtest timing convention, transaction cost assumptions, number of rebalances, number of trades, skipped trade counts, missing-price skips, minimum-trade-size skips, cash-constrained order resizing, leverage attempts, and whether cash ever went negative. Cash-constrained resizing is normal accounting behavior; it is reported separately from leverage attempts.
 
 `reconciliation_report.csv` proves daily accounting with `reported_equity = cash + positions_market_value`. Rows include cash, positions market value, reported equity, recalculated equity, difference, and reconciliation status.
+
+`research_report.md` compares the strategy against the benchmark on net return, volatility, max drawdown, worst week, negative week frequency, turnover, and cost drag. It also includes a metric definitions section with the CAGR, risk-free rate, Sortino, Calmar, turnover, cost drag, and resampling conventions. `rolling_metrics.csv` contains rolling 3-month, 6-month, and 12-month returns, volatility, drawdown, and beta to benchmark.
 
 ## Tests
 

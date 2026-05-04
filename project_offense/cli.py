@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from project_offense.backtest.engine import run_backtest
-from project_offense.config import CostConfig, StrategyConfig
+from project_offense.config import CostConfig, defensive_momentum_v1
 from project_offense.data.provider import LocalCSVDataProvider, SyntheticDemoDataProvider
 from project_offense.data.sources import download_yfinance
 from project_offense.data.universe import load_universe
@@ -19,6 +19,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--benchmark", default="SPY")
     parser.add_argument("--start", default="2015-01-01")
     parser.add_argument("--top-n", type=int, default=5)
+    parser.add_argument("--strategy", default="defensive_momentum_v1", choices=["defensive_momentum_v1"])
     parser.add_argument("--output-dir", default="reports_output")
     parser.add_argument("--demo", action="store_true")
     parser.add_argument("--allow-synthetic", action="store_true", help="Required when --demo is used.")
@@ -62,7 +63,7 @@ def main() -> None:
     price_data = validate_price_data(price_data, DataValidationConfig(allow_synthetic=args.allow_synthetic))
     result = run_backtest(
         price_data,
-        StrategyConfig(
+        defensive_momentum_v1(
             top_n=args.top_n,
             benchmark_symbol=args.benchmark,
             cost=CostConfig(),

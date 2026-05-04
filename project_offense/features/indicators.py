@@ -28,12 +28,20 @@ def rolling_max_drawdown(prices: pd.DataFrame | pd.Series, window: int = 126) ->
     return prices / rolling_peak - 1.0
 
 
-def build_features(prices: pd.DataFrame) -> dict[str, pd.DataFrame]:
+def build_features(
+    prices: pd.DataFrame,
+    *,
+    lookback_12m: int = 252,
+    skip_recent_month: int = TRADING_DAYS_PER_MONTH,
+    lookback_6m: int = 126,
+    volatility_lookback: int = 126,
+    trend_ma_window: int = 200,
+) -> dict[str, pd.DataFrame]:
     return {
-        "mom_12_1": momentum(prices, 252, skip_days=TRADING_DAYS_PER_MONTH),
-        "mom_6": momentum(prices, 126),
-        "sma_200": simple_moving_average(prices, 200),
-        "trend_200": (prices > simple_moving_average(prices, 200)).astype(float),
-        "vol_6": realized_volatility(prices, 126),
-        "drawdown_6": rolling_max_drawdown(prices, 126),
+        "mom_12_1": momentum(prices, lookback_12m, skip_days=skip_recent_month),
+        "mom_6": momentum(prices, lookback_6m),
+        "sma_200": simple_moving_average(prices, trend_ma_window),
+        "trend_200": (prices > simple_moving_average(prices, trend_ma_window)).astype(float),
+        "vol_6": realized_volatility(prices, volatility_lookback),
+        "drawdown_6": rolling_max_drawdown(prices, volatility_lookback),
     }
