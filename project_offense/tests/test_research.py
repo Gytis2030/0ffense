@@ -167,6 +167,8 @@ class ResearchMetricTests(unittest.TestCase):
         self.assertIn("weekly_returns.csv", files)
         self.assertIn("rolling_metrics.csv", files)
         self.assertIn("strategy_score_summary.csv", files)
+        self.assertIn("objective_scorecard.csv", files)
+        self.assertIn("objective_scorecard.md", files)
         self.assertIn("research_report.md", files)
         self.assertIn("net_return_benchmark", report)
         self.assertIn("volatility_benchmark", report)
@@ -183,6 +185,7 @@ class ResearchMetricTests(unittest.TestCase):
         self.assertIn("Turnover is sum(abs(executed trade value)) / average equity", report)
         self.assertIn("Cost drag is full-period", report)
         self.assertIn("Weekly returns use W-FRI", report)
+        self.assertIn("## Project Offense Scorecard", report)
 
     def test_default_defensive_momentum_config(self) -> None:
         config = defensive_momentum_v1()

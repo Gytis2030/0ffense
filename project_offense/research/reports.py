@@ -13,6 +13,7 @@ from project_offense.research.metrics import (
     rolling_metrics,
     weekly_returns,
 )
+from project_offense.research.scorecard import build_scorecard, format_scorecard_markdown
 
 
 def write_research_reports(result, output_dir: str) -> None:
@@ -24,15 +25,19 @@ def write_research_reports(result, output_dir: str) -> None:
     strategy_returns, benchmark_returns = research_return_pair(result)
     rolling = rolling_metrics(strategy_returns, benchmark_returns)
     summary = pd.Series(metrics, name="value").to_frame()
+    scorecard = build_scorecard(result)
 
     weekly.to_csv(path / "weekly_returns.csv")
     monthly.to_csv(path / "monthly_returns.csv")
     rolling.to_csv(path / "rolling_metrics.csv")
     summary.to_csv(path / "strategy_score_summary.csv")
-    (path / "research_report.md").write_text(format_research_report(metrics, result), encoding="utf-8")
+    scorecard.to_frame().to_csv(path / "objective_scorecard.csv", index=False)
+    (path / "objective_scorecard.md").write_text(format_scorecard_markdown(scorecard), encoding="utf-8")
+    (path / "research_report.md").write_text(format_research_report(metrics, result, scorecard=scorecard), encoding="utf-8")
 
 
-def format_research_report(metrics: dict[str, float], result) -> str:
+def format_research_report(metrics: dict[str, float], result, scorecard=None) -> str:
+    scorecard = scorecard or build_scorecard(result)
     strategy_returns, benchmark_returns = research_return_pair(result)
     benchmark_total = float((1.0 + benchmark_returns).prod() - 1.0)
     strategy_total = float(result.equity_curve.iloc[-1] / result.equity_curve.iloc[0] - 1.0)
@@ -61,6 +66,20 @@ def format_research_report(metrics: dict[str, float], result) -> str:
             f"- cost_drag: {metrics['total_cost_drag']:.6f}",
             "- cost_drag_benchmark: not_modeled",
             "",
+            "## Project Offense Scorecard",
+            "",
+            f"- overall_status: {scorecard.overall_status}",
+            f"- return_objective: {scorecard.return_objective}",
+            f"- risk_objective: {scorecard.risk_objective}",
+            f"- drawdown_objective: {scorecard.drawdown_objective}",
+            f"- behavioral_objective: {scorecard.behavioral_objective}",
+            f"- cost_practicality_objective: {scorecard.cost_practicality_objective}",
+            f"- evidence_quality_objective: {scorecard.evidence_quality_objective}",
+            "",
+            "### Scorecard Reasons",
+            "",
+            *_scorecard_reason_lines(scorecard),
+            "",
             "## Metrics",
             "",
             *[f"- {key}: {value:.6f}" for key, value in metrics.items()],
@@ -88,3 +107,10 @@ def _paired_period_returns(result, period_func, label: str) -> pd.DataFrame:
     frame = pd.concat([strategy, benchmark], axis=1).dropna()
     frame.index.name = f"{label}_period"
     return frame
+
+
+def _scorecard_reason_lines(scorecard) -> list[str]:
+    rows = [result for result in scorecard.objective_results if result.status != "PASS"]
+    if not rows:
+        rows = list(scorecard.objective_results)
+    return [f"- {result.metric_name}: {result.status} - {result.reason}" for result in rows]

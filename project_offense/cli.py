@@ -10,6 +10,7 @@ from project_offense.data.sources import download_yfinance
 from project_offense.data.universe import load_universe
 from project_offense.data.validation import DataMetadata, DataValidationConfig, PriceData, validate_price_data
 from project_offense.reports.orders import write_reports
+from project_offense.research.scorecard import build_scorecard
 
 
 def parse_args() -> argparse.Namespace:
@@ -77,6 +78,7 @@ def main() -> None:
         print(f"{key}: {value:.4f}")
     _print_audit_summary(result.data_audit)
     _print_backtest_audit_summary(result.backtest_audit)
+    _print_scorecard_summary(build_scorecard(result))
     print(f"Reports written to: {output_dir.resolve()}")
 
 
@@ -112,6 +114,21 @@ def _print_backtest_audit_summary(audit: dict[str, object]) -> None:
             cash_resized=audit.get("number_of_cash_resized_orders"),
             leverage=audit.get("leverage_was_attempted"),
             cash_negative=audit.get("cash_went_negative"),
+        )
+    )
+
+
+def _print_scorecard_summary(scorecard) -> None:
+    print("Objective scorecard")
+    print(
+        "overall={overall} return={return_status} risk={risk} drawdown={drawdown} behavioral={behavioral} cost_practicality={cost} evidence_quality={evidence}".format(
+            overall=scorecard.overall_status,
+            return_status=scorecard.return_objective,
+            risk=scorecard.risk_objective,
+            drawdown=scorecard.drawdown_objective,
+            behavioral=scorecard.behavioral_objective,
+            cost=scorecard.cost_practicality_objective,
+            evidence=scorecard.evidence_quality_objective,
         )
     )
 

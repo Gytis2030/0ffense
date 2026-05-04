@@ -71,6 +71,48 @@ project-offense --demo --allow-synthetic --strategy defensive_momentum_v1 --univ
 
 Research outputs are written automatically. Use `research_report.md` for the high-level objective comparison versus the benchmark, and `strategy_score_summary.csv` for the metric table. The default research reports assume `risk_free_rate = 0.0` unless the strategy config is changed.
 
+## Project Offense Objective Scorecard
+
+The objective scorecard is a formal PASS / FAIL / INCONCLUSIVE gate for deciding whether a backtest supports the Project Offense objective. It is not a parameter optimizer and should not be used to tune the strategy to a single historical sample.
+
+Default objectives require:
+
+- strategy CAGR to exceed benchmark CAGR after costs
+- strategy volatility to be below benchmark volatility
+- strategy max drawdown to be less severe than benchmark max drawdown
+- worst weekly return to be less severe than benchmark
+- negative week frequency to be no worse than benchmark
+- turnover, full-period cost drag, and annualized cost drag to remain acceptable
+- average executed trade size to remain practical for a small account
+- enough backtest years, rebalances, and trades to evaluate the result
+
+Scorecard statuses:
+
+- `PASS`: evidence is sufficient and all required return, risk, drawdown, behavioral, and cost/practicality objectives pass.
+- `FAIL`: evidence is sufficient, but one or more critical Project Offense objectives fail.
+- `INCONCLUSIVE`: the backtest period is too short, there are too few rebalances or trades, required metrics are unavailable, benchmark data is insufficient, or validation warnings must be reviewed.
+
+The default threshold profile is defined by `ObjectiveConfig` in `project_offense.research.scorecard`.
+
+Default numeric thresholds:
+
+- `minimum_excess_cagr`: `0.0`
+- `maximum_relative_volatility`: `1.0`
+- `maximum_relative_drawdown`: `1.0`
+- `maximum_worst_week`: `1.0`
+- `maximum_negative_week_frequency`: `1.0`
+- `maximum_turnover`: `50.0`
+- `maximum_cost_drag`: `0.10`
+- `maximum_annualized_cost_drag`: `0.02`
+- `minimum_average_trade_size`: `50.0`
+- `minimum_backtest_years`: `3.0`
+- `minimum_number_of_rebalances`: `24`
+- `minimum_number_of_trades`: `20`
+
+Evidence quality gates a `PASS`: synthetic/demo data, material validation warnings, short samples, too few rebalances, too few trades, unavailable benchmark evidence, or non-finite required metrics make the scorecard `INCONCLUSIVE` unless a critical objective already clearly fails. In that case the overall status is `FAIL`, because a strategy can be rejected even when evidence is not sufficient for approval.
+
+Reports write `objective_scorecard.csv` for row-level objective results and `objective_scorecard.md` for the human-readable status summary. `research_report.md` also includes a compact scorecard section and failed/inconclusive objective reasons.
+
 Metric conventions:
 
 - CAGR is calculated from the first and last valid net equity values and annualized using elapsed calendar days divided by 365.25.
@@ -154,6 +196,8 @@ The CLI writes:
 - `equity_curve.csv`
 - `dry_run_orders.csv`
 - `metrics.csv`
+- `objective_scorecard.csv`
+- `objective_scorecard.md`
 - `positions.csv`
 - `reconciliation_report.csv`
 - `research_report.md`
