@@ -1,0 +1,61 @@
+assets:
+  - ticker: SPY
+    exchange: ARCA
+    currency: USD
+    asset_class: equity_etf
+    role: benchmark
+    minimum_trade_size: 50.0
+  - ticker: QQQ
+    exchange: NASDAQ
+    currency: USD
+    asset_class: equity_etf
+    role: growth
+    minimum_trade_size: 50.0
+  - ticker: IWM
+    exchange: ARCA
+    currency: USD
+    asset_class: equity_etf
+    role: small_cap
+    minimum_trade_size: 50.0
+  - ticker: EFA
+    exchange: ARCA
+    currency: USD
+    asset_class: equity_etf
+    role: developed_ex_us
+    minimum_trade_size: 50.0
+  - ticker: EEM
+    exchange: ARCA
+    currency: USD
+    asset_class: equity_etf
+    role: emerging_markets
+    minimum_trade_size: 50.0
+  - ticker: XLV
+    exchange: ARCA
+    currency: USD
+    asset_class: sector_etf
+    role: sector
+    minimum_trade_size: 50.0
+  - ticker: XLE
+    exchange: ARCA
+    currency: USD
+    asset_class: sector_etf
+    role: sector
+    minimum_trade_size: 50.0
+  - ticker: VNQ
+    exchange: ARCA
+    currency: USD
+    asset_class: real_estate_etf
+    role: real_assets
+    minimum_trade_size: 50.0
+  - ticker: GLD
+    exchange: ARCA
+    currency: USD
+    asset_class: commodity_etf
+    role: diversifier
+    minimum_trade_size: 50.0
+  - ticker: TLT
+    exchange: NASDAQ
+    currency: USD
+    asset_class: bond_etf
+    role: diversifier
+    minimum_trade_size: 50.0

@@ -8,6 +8,7 @@ from project_offense.backtest.calendar import monthly_rebalance_dates
 from project_offense.backtest.costs import trade_costs
 from project_offense.backtest.metrics import performance_metrics
 from project_offense.config import StrategyConfig
+from project_offense.data.validation import DataValidationError, PriceData
 from project_offense.features.indicators import build_features, rolling_max_drawdown, simple_moving_average
 from project_offense.portfolio.construction import inverse_vol_weights
 from project_offense.reports.orders import build_order_report
@@ -23,6 +24,7 @@ class BacktestResult:
     order_report: pd.DataFrame
     metrics: dict[str, float]
     benchmark_returns: pd.Series
+    data_audit: dict[str, object]
 
 
 def regime_exposure(benchmark_prices: pd.Series, asof_date: pd.Timestamp) -> float:
@@ -37,12 +39,93 @@ def regime_exposure(benchmark_prices: pd.Series, asof_date: pd.Timestamp) -> flo
     return exposure
 
 
-def run_backtest(prices: pd.DataFrame, config: StrategyConfig = StrategyConfig()) -> BacktestResult:
+def run_backtest(price_data: PriceData, config: StrategyConfig = StrategyConfig()) -> BacktestResult:
+    if not isinstance(price_data, PriceData):
+        raise TypeError("run_backtest() requires validated PriceData. Use run_backtest_unsafe_from_dataframe(..., allow_unsafe=True) only for tests/debugging.")
+    _require_validated_price_data(price_data, config)
+    return _run_backtest_from_prices(price_data.prices, config, _build_data_audit(price_data, config))
+
+
+def run_backtest_unsafe_from_dataframe(
+    prices: pd.DataFrame,
+    config: StrategyConfig = StrategyConfig(),
+    *,
+    allow_unsafe: bool = False,
+) -> BacktestResult:
+    """Run a backtest from a raw DataFrame for tests/debugging only.
+
+    This bypasses PriceData metadata and validation. Production research must
+    use run_backtest() with validated PriceData.
+    """
+    if not allow_unsafe:
+        raise RuntimeError("Unsafe raw DataFrame backtests are disabled unless allow_unsafe=True.")
+    audit = {
+        "source_name": "unsafe_dataframe",
+        "is_synthetic": None,
+        "price_type": None,
+        "currency": None,
+        "validation_status": "unsafe_bypassed",
+        "validation_warnings": ("Raw DataFrame validation was explicitly bypassed.",),
+        "validation_errors": (),
+    }
+    return _run_backtest_from_prices(prices, config, audit)
+
+
+def _require_validated_price_data(price_data: PriceData, config: StrategyConfig) -> None:
+    result = price_data.validation_result
+    if result is None or not result.validated:
+        raise DataValidationError("run_backtest() requires PriceData returned by validate_price_data().")
+    if result.errors:
+        raise DataValidationError(f"Validated PriceData contains fatal errors: {'; '.join(result.errors)}")
+    if price_data.metadata.is_synthetic and not result.allow_synthetic:
+        raise DataValidationError("Synthetic PriceData is not allowed unless it was validated with allow_synthetic=True.")
+    if config.benchmark_symbol not in price_data.prices.columns:
+        raise ValueError(f"Benchmark {config.benchmark_symbol!r} is missing from validated PriceData.")
+    benchmark = price_data.prices[config.benchmark_symbol]
+    if benchmark.isna().any():
+        raise DataValidationError(f"Benchmark {config.benchmark_symbol!r} contains NaNs after validation.")
+    expected_dates = pd.bdate_range(price_data.prices.index.min(), price_data.prices.index.max())
+    missing_dates = expected_dates.difference(price_data.prices.index)
+    if not missing_dates.empty:
+        first_missing = missing_dates[0].date().isoformat()
+        raise DataValidationError(
+            f"Benchmark {config.benchmark_symbol!r} has missing business dates after validation; first missing date is {first_missing}."
+        )
+
+
+def _build_data_audit(price_data: PriceData, config: StrategyConfig) -> dict[str, object]:
+    result = price_data.validation_result
+    return {
+        "source_name": price_data.metadata.source_name,
+        "is_synthetic": price_data.metadata.is_synthetic,
+        "price_type": price_data.metadata.price_type,
+        "currency": price_data.metadata.currency,
+        "timezone": price_data.metadata.timezone,
+        "validation_status": "validated" if result and result.validated else "unvalidated",
+        "validation_warnings": result.warnings if result else (),
+        "validation_errors": result.errors if result else (),
+        "benchmark_ticker": config.benchmark_symbol,
+        "data_start_date": price_data.prices.index.min().date().isoformat(),
+        "data_end_date": price_data.prices.index.max().date().isoformat(),
+        "row_count": int(len(price_data.prices)),
+        "ticker_count": int(len(price_data.prices.columns)),
+    }
+
+
+def _run_backtest_from_prices(prices: pd.DataFrame, config: StrategyConfig, data_audit: dict[str, object]) -> BacktestResult:
     prices = prices.sort_index().dropna(how="all")
     if config.benchmark_symbol not in prices.columns:
         raise ValueError(f"Benchmark {config.benchmark_symbol!r} is missing from prices.")
     benchmark = prices[config.benchmark_symbol]
     assets = prices.drop(columns=[config.benchmark_symbol])
+    if config.active_universe is not None:
+        allowed = [ticker for ticker in config.active_universe if ticker in assets.columns]
+        missing = sorted(set(config.active_universe) - set(assets.columns) - {config.benchmark_symbol})
+        if missing:
+            raise ValueError(f"Active universe tickers missing from prices: {', '.join(missing)}")
+        if not allowed:
+            raise ValueError("Active universe has no tradable tickers in prices.")
+        assets = assets.loc[:, allowed]
     asset_returns = assets.pct_change().fillna(0.0)
     benchmark_returns = benchmark.pct_change().fillna(0.0)
     scores = ranking_scores(assets)
@@ -101,4 +184,5 @@ def run_backtest(prices: pd.DataFrame, config: StrategyConfig = StrategyConfig()
         build_order_report(current_weights, prices.iloc[-1], float(equity.iloc[-1])),
         performance_metrics(returns.iloc[1:], benchmark_returns.iloc[1:]),
         benchmark_returns,
+        data_audit,
     )

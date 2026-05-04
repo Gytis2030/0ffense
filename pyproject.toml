@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Low-turnover long-only risk-managed trading research system."
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["numpy>=1.23", "pandas>=1.5"]
+dependencies = ["numpy>=1.23", "pandas>=1.5", "PyYAML>=6.0"]
 
 [project.optional-dependencies]
 data = ["yfinance>=0.2"]

@@ -1,0 +1,55 @@
+assets:
+  - ticker: SPY
+    exchange: ARCA
+    currency: USD
+    asset_class: equity_etf
+    role: benchmark
+    minimum_trade_size: 50.0
+  - ticker: AAPL
+    exchange: NASDAQ
+    currency: USD
+    asset_class: common_stock
+    role: equity
+    minimum_trade_size: 50.0
+  - ticker: MSFT
+    exchange: NASDAQ
+    currency: USD
+    asset_class: common_stock
+    role: equity
+    minimum_trade_size: 50.0
+  - ticker: NVDA
+    exchange: NASDAQ
+    currency: USD
+    asset_class: common_stock
+    role: equity
+    minimum_trade_size: 50.0
+  - ticker: AMZN
+    exchange: NASDAQ
+    currency: USD
+    asset_class: common_stock
+    role: equity
+    minimum_trade_size: 50.0
+  - ticker: META
+    exchange: NASDAQ
+    currency: USD
+    asset_class: common_stock
+    role: equity
+    minimum_trade_size: 50.0
+  - ticker: GOOGL
+    exchange: NASDAQ
+    currency: USD
+    asset_class: common_stock
+    role: equity
+    minimum_trade_size: 50.0
+  - ticker: JPM
+    exchange: NYSE
+    currency: USD
+    asset_class: common_stock
+    role: equity
+    minimum_trade_size: 50.0
+  - ticker: XLV
+    exchange: ARCA
+    currency: USD
+    asset_class: sector_etf
+    role: sector_proxy
+    minimum_trade_size: 50.0

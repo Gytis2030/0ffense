@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import Sequence
 
 
 @dataclass(frozen=True)
@@ -16,3 +19,4 @@ class StrategyConfig:
     benchmark_symbol: str = "SPY"
     starting_cash: float = 100_000.0
     cost: CostConfig = CostConfig()
+    active_universe: Sequence[str] | None = None

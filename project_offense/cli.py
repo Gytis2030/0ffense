@@ -5,7 +5,10 @@ from pathlib import Path
 
 from project_offense.backtest.engine import run_backtest
 from project_offense.config import CostConfig, StrategyConfig
-from project_offense.data.sources import download_yfinance, make_demo_prices, read_price_csv
+from project_offense.data.provider import LocalCSVDataProvider, SyntheticDemoDataProvider
+from project_offense.data.sources import download_yfinance
+from project_offense.data.universe import load_universe
+from project_offense.data.validation import DataMetadata, DataValidationConfig, PriceData, validate_price_data
 from project_offense.reports.orders import write_reports
 
 
@@ -18,24 +21,82 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--top-n", type=int, default=5)
     parser.add_argument("--output-dir", default="reports_output")
     parser.add_argument("--demo", action="store_true")
+    parser.add_argument("--allow-synthetic", action="store_true", help="Required when --demo is used.")
+    parser.add_argument("--universe-config", help="YAML universe config. Example: config/stock_universe.yaml")
+    parser.add_argument("--price-type", default="adjusted_close", choices=["adjusted_close", "total_return", "raw_close"])
+    parser.add_argument("--currency", default="USD")
+    parser.add_argument("--timezone")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    if args.demo and not args.allow_synthetic:
+        raise SystemExit("--demo uses synthetic data; pass --allow-synthetic to run it explicitly.")
+    universe = load_universe(args.universe_config) if args.universe_config else None
+    active_tickers = list(universe.tradable_tickers) if universe else args.symbols
+    symbols = active_tickers + [args.benchmark]
     if args.prices_csv:
-        prices = read_price_csv(args.prices_csv)
+        provider = LocalCSVDataProvider(
+            args.prices_csv,
+            price_type=args.price_type,
+            currency=args.currency,
+            timezone=args.timezone,
+        )
+        price_data = provider.load(symbols)
     elif args.demo:
-        prices = make_demo_prices(args.symbols, benchmark=args.benchmark, start=args.start)
+        provider = SyntheticDemoDataProvider(benchmark=args.benchmark, start=args.start, currency=args.currency)
+        price_data = provider.load(active_tickers)
     else:
-        prices = download_yfinance(args.symbols + [args.benchmark], start=args.start)
-    result = run_backtest(prices, StrategyConfig(top_n=args.top_n, benchmark_symbol=args.benchmark, cost=CostConfig()))
+        prices = download_yfinance(symbols, start=args.start)
+        price_data = PriceData(
+            prices=prices,
+            metadata=DataMetadata(
+                source_name="yfinance",
+                is_synthetic=False,
+                price_type="adjusted_close",
+                currency=args.currency,
+                timezone=args.timezone,
+            ),
+        )
+    price_data = validate_price_data(price_data, DataValidationConfig(allow_synthetic=args.allow_synthetic))
+    result = run_backtest(
+        price_data,
+        StrategyConfig(
+            top_n=args.top_n,
+            benchmark_symbol=args.benchmark,
+            cost=CostConfig(),
+            active_universe=active_tickers if universe else None,
+        ),
+    )
     output_dir = Path(args.output_dir)
     write_reports(result, str(output_dir))
     print("Performance metrics")
     for key, value in result.metrics.items():
         print(f"{key}: {value:.4f}")
+    _print_audit_summary(result.data_audit)
     print(f"Reports written to: {output_dir.resolve()}")
+
+
+def _print_audit_summary(audit: dict[str, object]) -> None:
+    print("Data audit")
+    print(
+        "source={source} price_type={price_type} currency={currency} benchmark={benchmark} rows={rows} tickers={tickers}".format(
+            source=audit.get("source_name"),
+            price_type=audit.get("price_type"),
+            currency=audit.get("currency"),
+            benchmark=audit.get("benchmark_ticker"),
+            rows=audit.get("row_count"),
+            tickers=audit.get("ticker_count"),
+        )
+    )
+    if audit.get("is_synthetic"):
+        print("WARNING: synthetic data was used; results are for demos/smoke tests only.")
+    warnings = tuple(audit.get("validation_warnings") or ())
+    if warnings:
+        print("Validation warnings")
+        for warning in warnings:
+            print(f"- {warning}")
 
 
 if __name__ == "__main__":
