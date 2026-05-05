@@ -8,3 +8,6 @@ dist/
 *.egg-info/
 .DS_Store
 reports_output*/
+data/real/etf_prices.csv
+data/real/etf_prices_partial.csv
+data/real/metadata.yaml

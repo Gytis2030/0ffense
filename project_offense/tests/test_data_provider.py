@@ -41,6 +41,7 @@ class DataProviderTests(unittest.TestCase):
             price_data = LocalCSVDataProvider(
                 path,
                 source_name="research_csv",
+                is_synthetic=False,
                 price_type="adjusted_close",
                 currency="USD",
                 timezone="America/New_York",
@@ -117,6 +118,57 @@ class DataProviderTests(unittest.TestCase):
         config = DataValidationConfig(stale_price_days=3)
         with self.assertRaises(DataValidationError):
             validate_price_data(PriceData(prices, metadata()), config)
+
+    def test_short_unchanged_streak_below_warning_passes_silently(self) -> None:
+        prices = valid_prices(periods=10)
+        prices.loc[prices.index[2:5], "AAPL"] = 102.0
+        validated = validate_price_data(PriceData(prices, metadata()))
+        self.assertEqual(validated.validation_result.warnings, ())
+
+    def test_warning_level_stale_streak_passes_with_warning(self) -> None:
+        dates = pd.bdate_range("2024-01-02", periods=12)
+        prices = pd.DataFrame(
+            {
+                "AGGU": [100, 101, 102, 103, 104, 104, 104, 104, 104, 109, 110, 111],
+                "SPY": range(200, 212),
+            },
+            index=dates,
+        )
+        validated = validate_price_data(PriceData(prices, metadata()))
+        warnings = validated.validation_result.warnings
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("AGGU", warnings[0])
+        self.assertIn("5 rows", warnings[0])
+        self.assertIn(dates[4].date().isoformat(), warnings[0])
+        self.assertIn(dates[8].date().isoformat(), warnings[0])
+
+    def test_error_level_stale_streak_fails(self) -> None:
+        dates = pd.bdate_range("2024-01-02", periods=20)
+        prices = pd.DataFrame(
+            {
+                "AGGU": [100, 101] + [102] * 15 + [118, 119, 120],
+                "SPY": range(200, 220),
+            },
+            index=dates,
+        )
+        with self.assertRaisesRegex(DataValidationError, "AGGU.*15 rows"):
+            validate_price_data(PriceData(prices, metadata()))
+
+    def test_aggu_like_six_row_unchanged_streak_warns_under_default_config(self) -> None:
+        dates = pd.bdate_range("2017-12-08", periods=12)
+        prices = pd.DataFrame(
+            {
+                "AGGU": [99, 100] + [101] * 6 + [102, 103, 104, 105],
+                "SPY": range(200, 212),
+            },
+            index=dates,
+        )
+        validated = validate_price_data(PriceData(prices, metadata()))
+        warning = validated.validation_result.warnings[0]
+        self.assertIn("AGGU", warning)
+        self.assertIn("6 rows", warning)
+        self.assertIn(dates[2].date().isoformat(), warning)
+        self.assertIn(dates[7].date().isoformat(), warning)
 
     def test_extreme_daily_returns_are_rejected(self) -> None:
         prices = valid_prices()

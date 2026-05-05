@@ -41,7 +41,9 @@ class DataValidationConfig:
     allow_synthetic: bool = False
     required_price_type: str = "adjusted_close"
     supported_currencies: frozenset[str] = frozenset({"USD"})
-    stale_price_days: int = 5
+    stale_price_days: int | None = None
+    stale_price_warning_days: int = 5
+    stale_price_error_days: int = 15
     extreme_daily_return: float = 0.50
     max_gap_days: int = 7
 
@@ -49,6 +51,7 @@ class DataValidationConfig:
 def validate_price_data(price_data: PriceData, config: DataValidationConfig = DataValidationConfig()) -> PriceData:
     metadata = price_data.metadata
     prices = price_data.prices
+    warnings: list[str] = []
     _validate_metadata(metadata, config)
 
     if not isinstance(prices, pd.DataFrame) or prices.empty:
@@ -81,16 +84,12 @@ def validate_price_data(price_data: PriceData, config: DataValidationConfig = Da
     if returns.abs().gt(config.extreme_daily_return).any().any():
         raise DataValidationError("Price data contains extreme daily returns.")
 
-    if config.stale_price_days > 1:
-        unchanged = prices.eq(prices.shift(1))
-        stale = unchanged.rolling(config.stale_price_days, min_periods=config.stale_price_days).sum()
-        if stale.ge(config.stale_price_days).any().any():
-            raise DataValidationError("Price data contains stale prices.")
+    warnings.extend(_validate_stale_prices(prices, config))
 
     return PriceData(
         prices=prices.copy(),
         metadata=metadata,
-        validation_result=ValidationResult(validated=True, warnings=(), errors=(), allow_synthetic=config.allow_synthetic),
+        validation_result=ValidationResult(validated=True, warnings=tuple(warnings), errors=(), allow_synthetic=config.allow_synthetic),
     )
 
 
@@ -108,3 +107,52 @@ def _validate_metadata(metadata: DataMetadata, config: DataValidationConfig) -> 
         raise DataValidationError(f"Unsupported data currency: {metadata.currency}.")
     if metadata.is_synthetic and not config.allow_synthetic:
         raise DataValidationError("Synthetic data is not allowed unless allow_synthetic=True.")
+
+
+def _validate_stale_prices(prices: pd.DataFrame, config: DataValidationConfig) -> list[str]:
+    warning_days = config.stale_price_warning_days
+    error_days = config.stale_price_error_days
+    if config.stale_price_days is not None:
+        if config.stale_price_days <= 0:
+            return []
+        error_days = config.stale_price_days
+        warning_days = min(warning_days, error_days)
+    if warning_days <= 1 and error_days <= 1:
+        return []
+    if error_days <= 1:
+        raise DataValidationError("stale_price_error_days must be greater than 1.")
+    if warning_days <= 1:
+        warning_days = error_days
+    if warning_days > error_days:
+        raise DataValidationError("stale_price_warning_days cannot exceed stale_price_error_days.")
+
+    warnings: list[str] = []
+    for ticker in prices.columns:
+        for streak_length, start_date, end_date in _unchanged_price_streaks(prices[ticker]):
+            message = (
+                f"Price data contains stale prices for {ticker}: unchanged-price streak of "
+                f"{streak_length} rows from {start_date.date().isoformat()} to {end_date.date().isoformat()}."
+            )
+            if streak_length >= error_days:
+                raise DataValidationError(message)
+            if streak_length >= warning_days:
+                warnings.append(message)
+    return warnings
+
+
+def _unchanged_price_streaks(series: pd.Series) -> list[tuple[int, pd.Timestamp, pd.Timestamp]]:
+    streaks: list[tuple[int, pd.Timestamp, pd.Timestamp]] = []
+    if series.empty:
+        return streaks
+    start_pos = 0
+    previous = series.iloc[0]
+    for pos in range(1, len(series)):
+        current = series.iloc[pos]
+        if current != previous:
+            if pos - start_pos > 1:
+                streaks.append((pos - start_pos, pd.Timestamp(series.index[start_pos]), pd.Timestamp(series.index[pos - 1])))
+            start_pos = pos
+            previous = current
+    if len(series) - start_pos > 1:
+        streaks.append((len(series) - start_pos, pd.Timestamp(series.index[start_pos]), pd.Timestamp(series.index[-1])))
+    return streaks

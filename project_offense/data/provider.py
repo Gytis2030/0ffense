@@ -20,6 +20,7 @@ class LocalCSVDataProvider:
         path: str | Path,
         *,
         source_name: str = "local_csv",
+        is_synthetic: bool = False,
         price_type: str = "adjusted_close",
         currency: str = "USD",
         timezone: str | None = None,
@@ -27,7 +28,7 @@ class LocalCSVDataProvider:
         self.path = Path(path)
         self.metadata = DataMetadata(
             source_name=source_name,
-            is_synthetic=False,
+            is_synthetic=is_synthetic,
             price_type=price_type,
             currency=currency,
             timezone=timezone,

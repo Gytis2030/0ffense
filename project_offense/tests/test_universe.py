@@ -53,6 +53,13 @@ class UniverseValidationTests(unittest.TestCase):
         self.assertIn("AAPL", universe.tradable_tickers)
         self.assertNotIn("SPY", universe.tradable_tickers)
 
+    def test_etf_universe_is_ucits_focused_and_has_notes(self) -> None:
+        universe = load_universe("config/etf_universe.yaml")
+        self.assertIn("CSPX", universe.benchmark_tickers)
+        self.assertIn("IWDA", universe.tradable_tickers)
+        self.assertLessEqual(len(universe.assets), 8)
+        self.assertTrue(all(asset.notes for asset in universe.assets))
+
     def test_strategy_only_trades_active_universe(self) -> None:
         prices = validate_price_data(
             make_demo_prices(symbols=["AAPL", "MSFT", "NVDA"], benchmark="SPY", periods=700),

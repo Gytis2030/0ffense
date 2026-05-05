@@ -1,61 +1,50 @@
 assets:
-  - ticker: SPY
-    exchange: ARCA
+  - ticker: CSPX
+    exchange: LSE
     currency: USD
-    asset_class: equity_etf
+    asset_class: ucits_equity_etf
     role: benchmark
-    minimum_trade_size: 50.0
-  - ticker: QQQ
-    exchange: NASDAQ
+    minimum_trade_size: 100.0
+    notes: "iShares Core S&P 500 UCITS ETF; default UCITS equity benchmark candidate."
+  - ticker: IWDA
+    exchange: LSE
     currency: USD
-    asset_class: equity_etf
-    role: growth
-    minimum_trade_size: 50.0
-  - ticker: IWM
-    exchange: ARCA
+    asset_class: ucits_equity_etf
+    role: global_developed_equity
+    minimum_trade_size: 100.0
+    notes: "iShares Core MSCI World UCITS ETF; broad developed-market equity exposure."
+  - ticker: EIMI
+    exchange: LSE
     currency: USD
-    asset_class: equity_etf
-    role: small_cap
-    minimum_trade_size: 50.0
-  - ticker: EFA
-    exchange: ARCA
+    asset_class: ucits_equity_etf
+    role: emerging_markets_equity
+    minimum_trade_size: 100.0
+    notes: "iShares Core MSCI EM IMI UCITS ETF; emerging-market equity exposure."
+  - ticker: IUIT
+    exchange: LSE
     currency: USD
-    asset_class: equity_etf
-    role: developed_ex_us
-    minimum_trade_size: 50.0
-  - ticker: EEM
-    exchange: ARCA
+    asset_class: ucits_sector_etf
+    role: technology_equity
+    minimum_trade_size: 100.0
+    notes: "iShares S&P 500 Information Technology Sector UCITS ETF; sector tilt candidate."
+  - ticker: IUHC
+    exchange: LSE
     currency: USD
-    asset_class: equity_etf
-    role: emerging_markets
-    minimum_trade_size: 50.0
-  - ticker: XLV
-    exchange: ARCA
+    asset_class: ucits_sector_etf
+    role: healthcare_equity
+    minimum_trade_size: 100.0
+    notes: "iShares S&P 500 Health Care Sector UCITS ETF; defensive sector tilt candidate."
+  - ticker: AGGU
+    exchange: LSE
     currency: USD
-    asset_class: sector_etf
-    role: sector
-    minimum_trade_size: 50.0
-  - ticker: XLE
-    exchange: ARCA
+    asset_class: ucits_bond_etf
+    role: aggregate_bonds
+    minimum_trade_size: 100.0
+    notes: "iShares Core Global Aggregate Bond UCITS ETF; diversifier candidate."
+  - ticker: IGLN
+    exchange: LSE
     currency: USD
-    asset_class: sector_etf
-    role: sector
-    minimum_trade_size: 50.0
-  - ticker: VNQ
-    exchange: ARCA
-    currency: USD
-    asset_class: real_estate_etf
-    role: real_assets
-    minimum_trade_size: 50.0
-  - ticker: GLD
-    exchange: ARCA
-    currency: USD
-    asset_class: commodity_etf
-    role: diversifier
-    minimum_trade_size: 50.0
-  - ticker: TLT
-    exchange: NASDAQ
-    currency: USD
-    asset_class: bond_etf
-    role: diversifier
-    minimum_trade_size: 50.0
+    asset_class: ucits_commodity_etc
+    role: gold
+    minimum_trade_size: 100.0
+    notes: "iShares Physical Gold ETC; real-asset diversifier candidate."

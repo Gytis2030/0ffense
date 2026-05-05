@@ -25,6 +25,7 @@ class UniverseAsset:
     asset_class: str
     role: str
     minimum_trade_size: float
+    notes: str = ""
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,10 @@ class Universe:
     @property
     def tradable_tickers(self) -> tuple[str, ...]:
         return tuple(asset.ticker for asset in self.assets if asset.role != "benchmark")
+
+    @property
+    def benchmark_tickers(self) -> tuple[str, ...]:
+        return tuple(asset.ticker for asset in self.assets if asset.role == "benchmark")
 
     def minimum_trade_sizes(self) -> dict[str, float]:
         return {asset.ticker: asset.minimum_trade_size for asset in self.assets}
@@ -86,6 +91,7 @@ def validate_universe(raw: Any) -> Universe:
                 asset_class=_validate_text(item["asset_class"], "asset_class", index),
                 role=_validate_text(item["role"], "role", index),
                 minimum_trade_size=minimum_trade_size,
+                notes=str(item.get("notes", "")).strip(),
             )
         )
 

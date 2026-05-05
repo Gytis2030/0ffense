@@ -1,0 +1,9 @@
+# Project Offense validates this declared metadata and the CSV price structure.
+# It cannot independently prove that a user-provided CSV is genuine market data.
+# Source adjusted or total-return prices from a trusted provider and keep raw
+# source files outside git unless they are intentionally small test fixtures.
+source_name: local_real_etf_csv
+is_synthetic: false
+price_type: adjusted_close
+currency: USD
+timezone: Europe/London

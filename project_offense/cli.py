@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+import yaml
 
 from project_offense.backtest.engine import run_backtest
 from project_offense.config import CostConfig, defensive_momentum_v1
@@ -15,9 +18,10 @@ from project_offense.research.scorecard import build_scorecard
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run Project Offense backtest.")
-    parser.add_argument("--prices-csv")
+    parser.add_argument("--prices-csv", "--price-csv", dest="prices_csv")
+    parser.add_argument("--metadata", help="Optional YAML metadata for --prices-csv/--price-csv.")
     parser.add_argument("--symbols", nargs="+", default=["AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "JPM", "XLV"])
-    parser.add_argument("--benchmark", default="SPY")
+    parser.add_argument("--benchmark")
     parser.add_argument("--start", default="2015-01-01")
     parser.add_argument("--top-n", type=int, default=5)
     parser.add_argument("--strategy", default="defensive_momentum_v1", choices=["defensive_momentum_v1"])
@@ -36,18 +40,23 @@ def main() -> None:
     if args.demo and not args.allow_synthetic:
         raise SystemExit("--demo uses synthetic data; pass --allow-synthetic to run it explicitly.")
     universe = load_universe(args.universe_config) if args.universe_config else None
+    benchmark = args.benchmark or _benchmark_from_universe(universe) or "SPY"
     active_tickers = list(universe.tradable_tickers) if universe else args.symbols
-    symbols = active_tickers + [args.benchmark]
+    active_tickers = [ticker for ticker in active_tickers if ticker != benchmark]
+    symbols = active_tickers + [benchmark]
     if args.prices_csv:
+        metadata = _load_metadata(args.metadata)
         provider = LocalCSVDataProvider(
             args.prices_csv,
-            price_type=args.price_type,
-            currency=args.currency,
-            timezone=args.timezone,
+            source_name=str(metadata.get("source_name", "local_csv")),
+            is_synthetic=_parse_is_synthetic(metadata.get("is_synthetic", False)),
+            price_type=str(metadata.get("price_type", args.price_type)),
+            currency=str(metadata.get("currency", args.currency)),
+            timezone=_parse_timezone(metadata.get("timezone", args.timezone)),
         )
         price_data = provider.load(symbols)
     elif args.demo:
-        provider = SyntheticDemoDataProvider(benchmark=args.benchmark, start=args.start, currency=args.currency)
+        provider = SyntheticDemoDataProvider(benchmark=benchmark, start=args.start, currency=args.currency)
         price_data = provider.load(active_tickers)
     else:
         prices = download_yfinance(symbols, start=args.start)
@@ -66,7 +75,7 @@ def main() -> None:
         price_data,
         defensive_momentum_v1(
             top_n=args.top_n,
-            benchmark_symbol=args.benchmark,
+            benchmark_symbol=benchmark,
             cost=CostConfig(),
             active_universe=active_tickers if universe else None,
         ),
@@ -131,6 +140,49 @@ def _print_scorecard_summary(scorecard) -> None:
             evidence=scorecard.evidence_quality_objective,
         )
     )
+
+
+def _benchmark_from_universe(universe) -> str | None:
+    if universe and universe.benchmark_tickers:
+        return universe.benchmark_tickers[0]
+    return None
+
+
+def _load_metadata(path: str | None) -> dict[str, object]:
+    if not path:
+        return {}
+    with Path(path).open("r", encoding="utf-8") as handle:
+        raw = yaml.safe_load(handle)
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise SystemExit("--metadata must point to a YAML mapping.")
+    return raw
+
+
+def _parse_is_synthetic(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized == "true":
+            return True
+        if normalized == "false":
+            return False
+    raise SystemExit("metadata is_synthetic must be a boolean true/false or string 'true'/'false'.")
+
+
+def _parse_timezone(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise SystemExit("metadata timezone must be a valid IANA timezone string, such as Europe/London.")
+    timezone = value.strip()
+    try:
+        ZoneInfo(timezone)
+    except ZoneInfoNotFoundError as exc:
+        raise SystemExit(f"metadata timezone is not a valid IANA timezone: {timezone}.") from exc
+    return timezone
 
 
 if __name__ == "__main__":
